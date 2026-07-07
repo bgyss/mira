@@ -1,6 +1,6 @@
-"""A PyTorch ``DataLoader`` over the Rocket League dataset, yielding model-ready batches.
+"""A PyTorch ``DataLoader`` over a game dataset, yielding model-ready batches.
 
-This adapts :meth:`mira.data.RocketScienceDataset.iter_clips` (the streaming read path) into
+This adapts :meth:`mira.data.GameDataset.iter_clips` (the streaming read path) into
 the ``(VideoActionBatch, list[ClipMeta])`` batches the codec and world model consume. It does not
 re-implement any reading, decoding, or action parsing — those live in :mod:`mira.data`.
 
@@ -27,9 +27,10 @@ from torch.utils.data import DataLoader, IterableDataset, get_worker_info
 
 from mira.world_model.actions_config import ActionConfig, ActionTensors, stack_action_tensors
 
-from .actions import DEFAULT_RL_KEYS, KeyVocab
+from .actions import KeyVocab
 from .batch import VideoActionBatch
-from .dataset import RocketScienceDataset
+from .dataset import GameDataset
+from .games import resolve_game
 
 
 @dataclass
@@ -77,6 +78,7 @@ class _VideoActionIterable(IterableDataset):
         clip_len: int,
         target_fps: int,
         n_players: int,
+        game: str,
         exclude_replays: bool,
         frame_size: tuple[int, int] | None,
         shuffle: bool,
@@ -94,6 +96,7 @@ class _VideoActionIterable(IterableDataset):
         self.target_fps = target_fps
         self.action_fps = action_fps
         self.n_players = n_players
+        self.game = game
         self.exclude_replays = exclude_replays
         self.frame_size = frame_size
         self.shuffle = shuffle
@@ -101,7 +104,7 @@ class _VideoActionIterable(IterableDataset):
         self.shuffle_buffer_size = shuffle_buffer_size
         self.seed = seed
 
-    def _my_shards(self, dataset: RocketScienceDataset) -> list[str]:
+    def _my_shards(self, dataset: GameDataset) -> list[str]:
         """The shards this (rank, worker) is responsible for, split rank-first then worker-second."""
         rank, world_size = _rank_and_world_size()
         info = get_worker_info()
@@ -139,7 +142,7 @@ class _VideoActionIterable(IterableDataset):
             ),
         }
 
-    def _shard_view(self, dataset: RocketScienceDataset, shard: str) -> RocketScienceDataset:
+    def _shard_view(self, dataset: GameDataset, shard: str) -> GameDataset:
         """A shard-scoped view of ``dataset``: same loaded match data, index restricted to one shard.
 
         ``iter_clips`` derives the shards it streams from ``index.entries``; the per-shard reading
@@ -150,7 +153,7 @@ class _VideoActionIterable(IterableDataset):
         view.index = dataset.index.model_copy(update={"entries": self._entries_by_shard[shard]})
         return view
 
-    def _groups(self, dataset: RocketScienceDataset, shard: str) -> Iterator[list[dict[str, Any]]]:
+    def _groups(self, dataset: GameDataset, shard: str) -> Iterator[list[dict[str, Any]]]:
         """Yield groups of ``n_players`` contiguous per-perspective samples from one shard's clips."""
         dataset = self._shard_view(dataset, shard)
         for clip in dataset.iter_clips(
@@ -178,7 +181,7 @@ class _VideoActionIterable(IterableDataset):
         info = get_worker_info()
         worker_id = info.id if info is not None else 0
 
-        dataset = RocketScienceDataset.from_local(self.index_path, vocab=self.vocab)
+        dataset = GameDataset.from_local(self.index_path, vocab=self.vocab, game=self.game)
         # Group entries by shard once so a single shard can be streamed at a time (for shard-order
         # shuffling); _shard_view scopes iter_clips to one shard's entries.
         self._entries_by_shard: dict[str, list] = {}
@@ -243,6 +246,7 @@ def create_loader(
     source_fps: int = 20,
     action_fps: int | None = None,
     action_config: ActionConfig | None = None,
+    game: str = "rocket_league",
     prefetch_factor: int = 2,
     pin_memory: bool | None = None,
 ) -> DataLoader:
@@ -264,9 +268,9 @@ def create_loader(
         infinite: Loop the stream forever (typical for training).
         shuffle_buffer_size: Number of groups buffered before one is emitted at random.
         seed: Base RNG seed (offset per rank/worker).
-        exclude_replays: Drop clips overlapping a goal-replay span.
+        exclude_replays: Drop clips overlapping the selected game's exclusion spans.
         frame_size: Optional ``(H, W)`` to resize decoded frames to (native size if ``None``).
-        valid_keys: Key vocabulary; defaults to ``DEFAULT_RL_KEYS``. Ignored if ``action_config`` is
+        valid_keys: Key vocabulary; defaults to the selected game's action keys. Ignored if ``action_config`` is
             given.
         source_fps: Nominal recording fps stored in the built ``ActionConfig`` (RL recordings are
             ~20fps). This is metadata only: the authoritative action downsampling is done inside the
@@ -286,8 +290,9 @@ def create_loader(
         A ``DataLoader`` over the dataset.
     """
     if action_config is None:
+        spec_action = resolve_game(game).spec.action_config
         action_config = ActionConfig(
-            valid_keys=list(valid_keys) if valid_keys is not None else list(DEFAULT_RL_KEYS),
+            valid_keys=list(valid_keys) if valid_keys is not None else list(spec_action.valid_keys),
             source_fps=source_fps,
             # The stored action rate follows action_fps when decoupled, else the frame rate.
             target_fps=action_fps if action_fps is not None else target_fps,
@@ -297,7 +302,7 @@ def create_loader(
     # skipped as "too long for its chunks" and, with `infinite=True`, the stream loops over an empty
     # epoch forever (a silent hang). Some-but-not-all fitting is fine -- the short matches are skipped
     # while streaming. This reads only index metadata (no video), so it is cheap to check once here.
-    probe = RocketScienceDataset.from_local(index_path, vocab=KeyVocab(tuple(action_config.valid_keys)))
+    probe = GameDataset.from_local(index_path, vocab=KeyVocab(tuple(action_config.valid_keys)), game=game)
     longest = probe.max_clip_frames(target_fps)
     if clip_len > longest:
         raise ValueError(
@@ -312,6 +317,7 @@ def create_loader(
         clip_len=clip_len,
         target_fps=target_fps,
         n_players=n_players,
+        game=game,
         exclude_replays=exclude_replays,
         frame_size=frame_size,
         shuffle=shuffle,

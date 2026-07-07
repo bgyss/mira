@@ -1,4 +1,4 @@
-"""RocketScienceDataset: load time-aligned 4-perspective clips of Rocket League matches.
+"""GameDataset: load time-aligned per-perspective clips from indexed game datasets.
 
 One WebDataset sample is one *(match, chunk)*: a ~4 s window (80 frames at 20 fps) of a match,
 bundling all perspectives — members `p{i}.mp4` / `p{i}.jsonl` (ordered by `player_id`) + `meta.json`,
@@ -16,20 +16,22 @@ import json
 import logging
 import random
 import tarfile
+import warnings
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from .actions import KeyVocab, tensorize_actions
 from .clips import compute_clip_frame_indices, compute_stride
 from .decode import decode_frames
-from .events import Event, events_in_frame_window, overlaps_any, parse_anchors, replay_spans
+from .events import Event, events_in_frame_window, overlaps_any
+from .games import resolve_game
 from .schema import Index, MatchEntry
-from .state import FrameState
 
 if TYPE_CHECKING:
     import torch
+    from .game_spec import GamePlugin
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +108,7 @@ class MatchClip:
     actions: "torch.Tensor"  # (P, T, n_keys) int32 multi-hot
     events: list[Event]  # events overlapping this window (mapped via the first selected perspective)
     frames: "torch.Tensor | None" = None  # (P, T, C, H, W) uint8; None if decode=False
-    physics: list[list[FrameState]] | None = None  # per perspective, T per-frame game-state dicts
+    physics: list[list[dict[str, Any]]] | None = None  # per perspective, T per-frame game-state dicts
     # (None if the dataset carries no physics). All perspectives share the same world state; kept
     # per-perspective so it stays frame-aligned with that perspective's frames/actions.
     global_frame_indices: list[int] | None = None  # match-global source-frame index per step (same T
@@ -144,14 +146,21 @@ class _MatchPlan:
     src_fps: float
     events: list[Event]
     meta: list[dict]
-    replays: list[tuple[int, int]]
+    exclusion_spans: list[tuple[int, int]]
 
 
-class RocketScienceDataset:
-    def __init__(self, index_path: str | Path, vocab: KeyVocab | None = None):
+class GameDataset:
+    def __init__(
+        self,
+        index_path: str | Path,
+        vocab: KeyVocab | None = None,
+        game: str | GamePlugin = "rocket_league",
+    ):
         self.index_path = Path(index_path)
         self.root = self.index_path.parent
-        self.vocab = vocab or KeyVocab.default_rl()
+        self.plugin = resolve_game(game)
+        self.game = self.plugin.spec.game_id
+        self.vocab = vocab or KeyVocab(tuple(self.plugin.spec.action_config.valid_keys))
 
         self.index: Index = Index.load(self.index_path)
         self.matches: dict[str, MatchEntry] = {}
@@ -163,7 +172,7 @@ class RocketScienceDataset:
             self._chunk_pos[e.match_id] = {e.chunk_id(pos): pos for pos in range(len(e.chunk_frames))}
 
     @classmethod
-    def from_local(cls, path: str | Path, **kwargs) -> "RocketScienceDataset":
+    def from_local(cls, path: str | Path, **kwargs) -> "GameDataset":
         """`path` may be the dataset directory (containing index.json) or the index.json itself."""
         path = Path(path)
         if path.is_dir():
@@ -181,7 +190,7 @@ class RocketScienceDataset:
         revision: str | None = None,
         shards: int | None = None,
         **kwargs,
-    ) -> "RocketScienceDataset":
+    ) -> "GameDataset":
         """Download one split of a dataset repo from the HuggingFace Hub and load it (random access).
 
         The repo holds each split under its own prefix: `{split}/index.json` plus WebDataset shards,
@@ -302,22 +311,26 @@ class RocketScienceDataset:
                 plan.append(_ClipPlan(cid, c, local, g0, g_end))
                 cid += 1
 
-        events_all = parse_anchors(persp[0].anchors)  # anchors identical across perspectives
-        replays = replay_spans(events_all, src_fps, persp[0].recording_offset_sec, total)
-        return _MatchPlan(entry, plan, stride, src_fps, events_all, [p.model_dump() for p in persp], replays)
+        events_all = self.plugin.parse_events(persp[0].anchors)  # anchors identical across perspectives
+        exclusion_spans = self.plugin.exclusion_spans(
+            events_all, src_fps, persp[0].recording_offset_sec, total
+        )
+        return _MatchPlan(
+            entry, plan, stride, src_fps, events_all, [p.model_dump() for p in persp], exclusion_spans
+        )
 
     @staticmethod
     def _select_plan(
-        mp: _MatchPlan, exclude_replays: bool, clip_ids: list[int] | None, max_clips: int | None
+        mp: _MatchPlan, exclude_spans: bool, clip_ids: list[int] | None, max_clips: int | None
     ) -> list[_ClipPlan]:
-        """Apply clip_ids / exclude_replays / max_clips to a match's clip plan. `clip_ids` selects by
+        """Apply clip_ids / exclusion spans / max_clips to a match's clip plan. `clip_ids` selects by
         the per-match running `clip_id`."""
         want = set(clip_ids) if clip_ids is not None else None
         out: list[_ClipPlan] = []
         for cp in mp.plan:
             if want is not None and cp.clip_id not in want:
                 continue
-            if exclude_replays and overlaps_any(cp.g0, cp.g_end, mp.replays):
+            if exclude_spans and overlaps_any(cp.g0, cp.g_end, mp.exclusion_spans):
                 continue
             out.append(cp)
             if max_clips is not None and len(out) >= max_clips:
@@ -476,7 +489,7 @@ class RocketScienceDataset:
         match_id: str,
         clip_len: int = 16,
         target_fps: int = 10,
-        exclude_replays: bool = False,
+        exclude_spans: bool = False,
         decode: bool = True,
         max_clips: int | None = None,
         perspective: str | int = "all",
@@ -484,6 +497,7 @@ class RocketScienceDataset:
         seed: int = 0,
         clip_ids: list[int] | None = None,
         action_fps: int | None = None,
+        exclude_replays: bool | None = None,
     ) -> list[MatchClip]:
         """Random access: build the requested clips, reading only the chunks they need.
 
@@ -493,10 +507,12 @@ class RocketScienceDataset:
         `action_fps` (additive; see `_assemble`) decouples the action sample rate from the frame
         `target_fps`; `None` keeps one action step per frame.
         """
+        if exclude_replays is not None:
+            exclude_spans = exclude_replays
         entry = self.matches[match_id]
         rng = random.Random(seed)
         mp = self._plan_match(entry, clip_len, target_fps)
-        selected = self._select_plan(mp, exclude_replays, clip_ids, max_clips)
+        selected = self._select_plan(mp, exclude_spans, clip_ids, max_clips)
 
         needed = sorted({cp.chunk_idx for cp in selected})
         chunks: dict[int, list[dict]] = {}
@@ -517,13 +533,14 @@ class RocketScienceDataset:
         self,
         clip_len: int = 16,
         target_fps: int = 10,
-        exclude_replays: bool = False,
+        exclude_spans: bool = False,
         decode: bool = True,
         perspective: str | int = "all",
         frame_size: tuple[int, int] | None = None,
         seed: int = 0,
         action_fps: int | None = None,
         carry_video: bool = False,
+        exclude_replays: bool | None = None,
     ) -> Iterator[MatchClip]:
         """Stream shards, yielding one decoded clip at a time (each sample = one (match, chunk)).
 
@@ -532,6 +549,8 @@ class RocketScienceDataset:
         compressed per-perspective mp4 bytes (`MatchClip.video_bytes`) so decoding can be deferred;
         use it with `decode=False` to stream undecoded clips that a consumer decodes on demand.
         """
+        if exclude_replays is not None:
+            exclude_spans = exclude_replays
         rng = random.Random(seed)
         plans: dict[str, _MatchPlan] = {}  # cache per-match plan within a run
         failed: set[str] = set()  # matches whose plan raised; skipped (logged once) rather than fatal
@@ -542,7 +561,7 @@ class RocketScienceDataset:
                 failed,
                 clip_len,
                 target_fps,
-                exclude_replays,
+                exclude_spans,
                 decode,
                 perspective,
                 frame_size,
@@ -558,7 +577,7 @@ class RocketScienceDataset:
         failed,
         clip_len,
         target_fps,
-        exclude_replays,
+        exclude_spans,
         decode,
         perspective,
         frame_size,
@@ -597,7 +616,7 @@ class RocketScienceDataset:
                 for cp in mp.plan:
                     if cp.chunk_idx != pos:
                         continue
-                    if exclude_replays and overlaps_any(cp.g0, cp.g_end, mp.replays):
+                    if exclude_spans and overlaps_any(cp.g0, cp.g_end, mp.exclusion_spans):
                         continue
                     sel = self._select_perspectives(perspective, entry.n_players, rng)
                     clips.append(
@@ -639,3 +658,15 @@ class RocketScienceDataset:
         if not part or "video" not in part or "lines" not in part:
             raise ValueError(f"chunk sample missing perspective {i} (have {sorted(parts)})")
         return part
+
+
+class RocketScienceDataset(GameDataset):
+    """Deprecated name for :class:`GameDataset`."""
+
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "RocketScienceDataset is deprecated; use GameDataset instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__(*args, **kwargs)

@@ -12,6 +12,7 @@ defaults:
 train_index: null
 test_index: null
 
+game: rocket_league
 n_players: 1          # 1 for the codec; 4 for the multiplayer world model.
 # Default frame rate clips are downsampled to. The training entrypoints override the frame rate
 # from the model config (codec: `encoder.video.fps`=20; world model: `video.fps`=20), and the

@@ -1,8 +1,8 @@
-"""Keyboard actions: parsing the per-frame `.jsonl` into a multi-hot tensor.
+"""Keyboard actions: parsing per-frame `.jsonl` records into a multi-hot tensor.
 
-The 4-player Rocket League data is keyboard-only (no mouse/analog): every `.jsonl` line is
-`{"keys": [...]}` with one line per video frame. We turn that into a multi-hot tensor over a
-fixed key vocabulary, downsampling to `target_fps` by OR-ing key presses over each window.
+Keyboard-only datasets provide one JSON object per video frame, conventionally
+`{"keys": [...]}`. We turn that into a multi-hot tensor over a fixed key vocabulary, downsampling to
+`target_fps` by OR-ing key presses over each window.
 
 Downsampling contract: integer-only downsampling, keys OR-ed over the window, int32 multi-hot. The
 fixed vocabulary order below must stay stable so the multi-hot ordering is consistent across
@@ -18,24 +18,10 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal
 
 from .clips import compute_stride
+from .games.rocket_league.keys import DEFAULT_RL_KEYS
 
 if TYPE_CHECKING:
     import torch
-
-# Stable, documented ordering of the 9 keys present in the 4-player Rocket League data.
-# (drive: W/S, steer/air: A/D, jump: Space, boost: LShiftKey, drift/air-roll: LControlKey,
-#  plus Q/E powerslide/air-roll binds). These are the keys present in the data.
-DEFAULT_RL_KEYS: tuple[str, ...] = (
-    "W",
-    "A",
-    "S",
-    "D",
-    "Q",
-    "E",
-    "Space",
-    "LShiftKey",
-    "LControlKey",
-)
 
 
 @dataclass(frozen=True)

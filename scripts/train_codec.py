@@ -298,6 +298,7 @@ def _create_dataloaders(cfg: DictConfig, model: VideoCodec):
         shuffle_buffer_size=cfg.dataloader.shuffle_buffer_size,
         frame_size=_frame_size(cfg),
         valid_keys=list(cfg.actions.valid_keys),
+        game=cfg.dataset.get("game", "rocket_league"),
         infinite=True,
     )
     train_loader = create_loader(

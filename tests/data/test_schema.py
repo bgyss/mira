@@ -25,6 +25,8 @@ def _entry(**overrides) -> dict:
 def test_index_parses_and_defaults():
     idx = Index.model_validate({"total_samples": 1, "entries": [_entry()]})
     assert len(idx.entries) == 1
+    assert idx.game_id is None
+    assert idx.schema_version == 1
     e = idx.entries[0]
     assert e.match_id == "m0"
     assert e.chunk_indices is None
@@ -32,6 +34,15 @@ def test_index_parses_and_defaults():
     # recording_offset_sec / anchors default when omitted.
     assert e.perspectives[0].recording_offset_sec == 0.0
     assert e.perspectives[0].anchors == []
+
+
+def test_index_accepts_game_fields():
+    idx = Index.model_validate(
+        {"game_id": "rocket_league", "schema_version": 1, "total_samples": 1, "entries": [_entry()]}
+    )
+
+    assert idx.game_id == "rocket_league"
+    assert idx.schema_version == 1
 
 
 def test_chunk_id_contiguous_vs_noncontiguous():

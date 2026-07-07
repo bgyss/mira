@@ -10,8 +10,8 @@ configs/
   train_world_model.yaml    # latent world-model training
   eval_world_model.yaml     # offline world-model evaluation
   model/                    # model architectures (codec, latent world model, multiplayer wrapper)
-  dataset/                  # dataset source (train/test splits, n_players, target fps)
-  actions/                  # action vocabulary (9-key DEFAULT_RL_KEYS, target fps)
+  dataset/                  # dataset source (train/test splits, game, n_players, target fps)
+  actions/                  # action vocabulary and action sample rate
 ```
 
 ## Entry-point configs
@@ -46,8 +46,18 @@ fetches them from the Hub) and sets `n_players` (1 for the codec, overridden to 
 multiplayer world model) and `target_fps`. It pulls in the action vocabulary with
 `/actions@actions: rocket_league`.
 
-`actions/rocket_league.yaml` lists the 9-key release vocabulary (`DEFAULT_RL_KEYS`) and the action
-sample rate `target_fps`.
+Dataset configs are expected to provide:
+
+- `train_index` and `test_index`: split directories or explicit `index.json` paths.
+- `game`: optional game plug-in id, defaulting to `rocket_league` for old configs.
+- `n_players`: number of contiguous player-ordered perspectives per training group.
+- `target_fps` and `frame_size`: decoded video sampling contract.
+- `actions`: composed via `/actions@actions: ...`, with `valid_keys`, `source_fps`, and
+  `target_fps`.
+
+`actions/rocket_league.yaml` lists the 9-key release vocabulary and the action sample rate
+`target_fps`. The loader uses the composed action config when present; otherwise it resolves
+defaults from `mira.data.games.GAME_REGISTRY[dataset.game]`.
 
 ## Interpolation
 

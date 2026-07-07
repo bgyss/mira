@@ -377,6 +377,7 @@ def _create_dataloaders(cfg: DictConfig, wm_metrics_config: WorldModelMetricsCon
         shuffle_buffer_size=cfg.dataloader.shuffle_buffer_size,
         frame_size=_frame_size(cfg),
         valid_keys=list(model.config.actions.valid_keys),
+        game=cfg.dataset.get("game", "rocket_league"),
         infinite=True,
     )
     stride = wm_metrics_config.eval_temporal_downsampling or model.temporal_downsampling

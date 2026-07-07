@@ -6,9 +6,9 @@
 - ``mouse_movements`` ``(B, T, 2)`` float32 raw mouse deltas,
 - ``game_mouse_sensitivity`` ``(B,)`` float32 (no time axis), NaN where unknown.
 
-The 4-player Rocket League data is keyboard-only, so the loader fills ``mouse_movements`` with
-zeros and ``game_mouse_sensitivity`` with NaN; the encoder masks the NaN sensitivity to a learned
-token (``torch.nan_to_num`` + ``torch.where``), so all-NaN is the expected "no mouse" signal.
+Keyboard-only datasets fill ``mouse_movements`` with zeros and ``game_mouse_sensitivity`` with NaN;
+the encoder masks the NaN sensitivity to a learned token (``torch.nan_to_num`` + ``torch.where``),
+so all-NaN is the expected "no mouse" signal.
 
 The JSONL-to-tensor parsing lives in :mod:`mira.data.actions` (``tensorize_actions``); this
 module only defines the tensor container and its config so the encoder surface stays stable.
@@ -32,7 +32,7 @@ class ActionConfig(BaseModel):
     """
 
     valid_keys: list[str]
-    source_fps: int = 20  # the 4-player Rocket League recordings are ~20fps
+    source_fps: int = 20
     target_fps: int = 10
 
     @property

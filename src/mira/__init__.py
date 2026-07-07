@@ -1,5 +1,6 @@
-"""mira: a multiplayer world model for Rocket League.
+"""mira: a real-time latent world model for interactive game experiences.
 
-The :mod:`mira.data` submodule loads the 4-player dataset — time-aligned video frames,
-keyboard actions, game events, and per-frame physics across all 4 co-temporal player perspectives.
+Rocket League is the first supported game plug-in. The :mod:`mira.data` submodule loads
+time-aligned video frames, actions, events, and optional per-frame state across co-temporal player
+perspectives.
 """

@@ -219,6 +219,7 @@ def _build_loader(cfg, model: "LatentWorldModel", *, clip_len: int, batch_size: 
         shuffle_buffer_size=cfg.dataloader.shuffle_buffer_size,
         frame_size=_frame_size(cfg),
         valid_keys=list(model.config.actions.valid_keys),
+        game=cfg.dataset.get("game", "rocket_league"),
         seed=seed,
         exclude_replays=True,
         infinite=True,
