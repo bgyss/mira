@@ -2,7 +2,7 @@
 
 ``clip.physics`` is ``list[list[FrameState]]`` — one list per selected perspective, each a per-frame
 state frame-aligned 1:1 with the clip's frames / actions along the T axis (see
-:mod:`mira.data.state` for the field layout).
+:mod:`mira.data.games.rocket_league.state` for the field layout).
 
 These functions are numpy-only so they are easy to unit-test, separate from any rendering layer that
 consumes them.

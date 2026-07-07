@@ -18,8 +18,9 @@ from pathlib import Path
 import pytest
 import torch
 
-from mira.data.actions import DEFAULT_RL_KEYS, KeyVocab
-from mira.data.dataset import RocketScienceDataset
+from mira.data.actions import KeyVocab
+from mira.data.dataset import GameDataset
+from mira.data.games.rocket_league.keys import DEFAULT_RL_KEYS
 from mira.data.training_loader import _VideoActionIterable, create_loader
 from mira.world_model.actions_config import ActionConfig
 
@@ -172,7 +173,7 @@ def _iterable(fixture) -> _VideoActionIterable:
 
 
 def _undecoded_clips(fixture, clip_len: int = 8) -> list:
-    ds = RocketScienceDataset.from_local(fixture, vocab=KeyVocab(tuple(DEFAULT_RL_KEYS)))
+    ds = GameDataset.from_local(fixture, vocab=KeyVocab(tuple(DEFAULT_RL_KEYS)))
     return list(ds.iter_clips(clip_len=clip_len, target_fps=10, decode=False, carry_video=True))
 
 

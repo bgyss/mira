@@ -270,12 +270,12 @@ def create_loader(
         seed: Base RNG seed (offset per rank/worker).
         exclude_replays: Drop clips overlapping the selected game's exclusion spans.
         frame_size: Optional ``(H, W)`` to resize decoded frames to (native size if ``None``).
-        valid_keys: Key vocabulary; defaults to the selected game's action keys. Ignored if ``action_config`` is
-            given.
-        source_fps: Nominal recording fps stored in the built ``ActionConfig`` (RL recordings are
-            ~20fps). This is metadata only: the authoritative action downsampling is done inside the
-            dataset using each match's measured fps, so the per-match factor may differ. Ignored if
+        valid_keys: Key vocabulary; defaults to the selected game's action keys. Ignored if
             ``action_config`` is given.
+        source_fps: Nominal recording fps stored in the built ``ActionConfig``. This is metadata
+            only: the authoritative action downsampling is done inside the dataset using each
+            match's measured fps, so the per-match factor may differ. Ignored if ``action_config``
+            is given.
         action_fps: Action sample rate, decoupled from the frame ``target_fps``. ``None`` (default)
             keeps one action step per frame, the released default. When set to a multiple of
             ``target_fps`` (e.g. ``2 * target_fps``) each clip yields ``action_fps // target_fps``

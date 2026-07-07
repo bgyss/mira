@@ -256,7 +256,7 @@ def clip_grid_video(
 # as dots on the arena floor, team-coloured, with a short velocity arrow and a boost ring. Rendered
 # per physics frame and animated in lockstep with the clip video. World
 # coords -> image: x spans the side walls (left/right), y the goal-to-goal axis (we draw +y up so
-# blue's goal sits at the bottom), z is dropped (top-down). See mira.data.physics for the ranges.
+# blue's goal sits at the bottom), z is dropped (top-down). See the RL physics module for ranges.
 
 _MINIMAP_BG = (18, 20, 26)
 _FIELD_FILL = (28, 32, 42)

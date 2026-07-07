@@ -4,9 +4,12 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from functools import cached_property
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ..events import Event, parse_anchors
+
+if TYPE_CHECKING:
+    from ..game_spec import GamePlugin, QualityCheck, VizTheme
 
 
 class RocketLeaguePlugin:
@@ -40,21 +43,21 @@ class RocketLeaguePlugin:
 
         return replay_spans(events, fps, recording_offset_sec, n_frames)
 
-    def quality_checks(self, clip: Any) -> list[Any]:
+    def quality_checks(self, clip: Any) -> list["QualityCheck"]:
         return []
 
-    def viz_theme(self):
+    def viz_theme(self) -> "VizTheme":
         from ..game_spec import VizTheme
-        from .rocket_league.viz import _TEAM_COLORS
         from .rocket_league.keys import DEFAULT_RL_KEYS
+        from .rocket_league.viz import _TEAM_COLORS
 
         return VizTheme(team_colors=_TEAM_COLORS, key_layout=DEFAULT_RL_KEYS)
 
 
-GAME_REGISTRY: dict[str, Any] = {"rocket_league": RocketLeaguePlugin()}
+GAME_REGISTRY: dict[str, "GamePlugin"] = {"rocket_league": RocketLeaguePlugin()}
 
 
-def resolve_game(game: str | Any) -> Any:
+def resolve_game(game: str | "GamePlugin") -> "GamePlugin":
     if isinstance(game, str):
         try:
             return GAME_REGISTRY[game]

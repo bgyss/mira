@@ -5,7 +5,7 @@ import json
 import huggingface_hub
 import pytest
 
-from mira.data import RocketScienceDataset
+from mira.data import GameDataset
 
 MID = "2026-05-10T00-00-00Z-abcdef"
 
@@ -34,7 +34,7 @@ def test_from_hub_downloads_prefix_and_loads(tmp_path, monkeypatch):
 
     monkeypatch.setattr(huggingface_hub, "snapshot_download", fake_snapshot_download)
 
-    ds = RocketScienceDataset.from_hub("kyutai/rocket-science", split="train")
+    ds = GameDataset.from_hub("kyutai/rocket-science", split="train")
     assert ds.match_ids() == [MID]
     # only the requested split prefix is fetched, from the dataset repo
     assert calls == {
@@ -53,7 +53,7 @@ def test_subdir_overrides_split(tmp_path, monkeypatch):
         "snapshot_download",
         lambda repo_id, **kw: seen.update(kw) or str(tmp_path),
     )
-    ds = RocketScienceDataset.from_hub("kyutai/rocket-science", split="train", subdir="custom")
+    ds = GameDataset.from_hub("kyutai/rocket-science", split="train", subdir="custom")
     assert ds.match_ids() == [MID]
     assert seen["allow_patterns"] == ["custom/*"]  # subdir wins over split
 
@@ -61,7 +61,7 @@ def test_subdir_overrides_split(tmp_path, monkeypatch):
 def test_missing_index_raises(tmp_path, monkeypatch):
     monkeypatch.setattr(huggingface_hub, "snapshot_download", lambda repo_id, **kw: str(tmp_path))
     with pytest.raises(FileNotFoundError):
-        RocketScienceDataset.from_hub("kyutai/rocket-science", split="train")  # no train/ written
+        GameDataset.from_hub("kyutai/rocket-science", split="train")  # no train/ written
 
 
 def test_from_hub_nested_shard_paths(tmp_path, monkeypatch):
@@ -91,7 +91,7 @@ def test_from_hub_nested_shard_paths(tmp_path, monkeypatch):
 
     monkeypatch.setattr(huggingface_hub, "snapshot_download", fake_snapshot_download)
 
-    ds = RocketScienceDataset.from_hub("kyutai/rocket-science", split="train", shards=1)
+    ds = GameDataset.from_hub("kyutai/rocket-science", split="train", shards=1)
     assert patterns_seen == [
         ["train/index.json"],
         ["train/index.json", "train/000/dataset_00000.tar"],

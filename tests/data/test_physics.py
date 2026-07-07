@@ -3,7 +3,7 @@ and per-step badges."""
 
 import numpy as np
 
-from mira.data import physics
+from mira.data.games.rocket_league import physics
 
 
 def test_consistency_all_pass_on_good_clip(make_clip):

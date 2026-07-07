@@ -31,6 +31,7 @@ from .schema import Index, MatchEntry
 
 if TYPE_CHECKING:
     import torch
+
     from .game_spec import GamePlugin
 
 logger = logging.getLogger(__name__)

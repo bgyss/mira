@@ -3,7 +3,6 @@ from mira.data.events import (
     events_in_frame_window,
     overlaps_any,
     parse_anchors,
-    replay_spans,
 )
 
 
@@ -22,19 +21,6 @@ def test_parse_anchors_dict_and_obj():
         event_type, event_name, master_sec = 2, "Demolition", 2.0
 
     assert parse_anchors([A()])[0].event_name == "Demolition"
-
-
-def test_replay_spans_pairing_and_clamping():
-    anchors = parse_anchors(
-        [
-            {"event_type": 3, "event_name": "GoalReplayStarted", "master_sec": 5.0},
-            {"event_type": 4, "event_name": "GoalReplayEnded", "master_sec": 10.0},
-            {"event_type": 3, "event_name": "GoalReplayStarted", "master_sec": 95.0},  # dangling
-        ]
-    )
-    spans = replay_spans(anchors, fps=20, recording_offset_sec=0.0, n_frames=2000)
-    assert spans[0] == (100, 200)
-    assert spans[1] == (1900, 2000)  # dangling start extends to end
 
 
 def test_overlaps_and_window():

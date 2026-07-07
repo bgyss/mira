@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from mira.data import RocketScienceDataset
+from mira.data import GameDataset
 
 pytestmark = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="needs ffmpeg (run via pixi)")
 
@@ -123,14 +123,14 @@ def gappy_fixture(tmp_path_factory):
 
 
 def test_index_and_chunk_frames(fixture):
-    ds = RocketScienceDataset.from_local(fixture)
+    ds = GameDataset.from_local(fixture)
     (entry,) = ds.index.entries
     assert entry.chunk_frames == [CHUNK] * N_CHUNKS
     assert entry.perspectives[0].frames == N_CHUNKS * CHUNK
 
 
 def test_clip_inside_one_chunk(fixture):
-    ds = RocketScienceDataset.from_local(fixture)
+    ds = GameDataset.from_local(fixture)
     # clip_len 8 @ 10fps -> stride 2 -> 15 source-frame span < 20 -> fits in a chunk
     clip = ds.load_match(ds.match_ids()[0], clip_len=8, target_fps=10, decode=True, clip_ids=[0])[0]
     assert clip.frames is not None
@@ -142,14 +142,14 @@ def test_clip_inside_one_chunk(fixture):
 
 
 def test_clip_longer_than_chunk_raises(fixture):
-    ds = RocketScienceDataset.from_local(fixture)
+    ds = GameDataset.from_local(fixture)
     # clip_len 12 @ 10fps -> stride 2 -> 23 source-frame span > 20 (chunk) -> too long, must raise
     with pytest.raises(ValueError, match="must fit in one chunk"):
         ds.load_match(ds.match_ids()[0], clip_len=12, target_fps=10, decode=False)
 
 
 def test_perspective_selection(fixture):
-    ds = RocketScienceDataset.from_local(fixture)
+    ds = GameDataset.from_local(fixture)
     one = ds.load_match(
         ds.match_ids()[0], clip_len=8, target_fps=10, decode=True, clip_ids=[0], perspective="player3"
     )[0]
@@ -158,7 +158,7 @@ def test_perspective_selection(fixture):
 
 
 def test_physics_surfaced_and_frame_aligned(physics_fixture):
-    ds = RocketScienceDataset.from_local(physics_fixture)
+    ds = GameDataset.from_local(physics_fixture)
     clip = ds.load_match(ds.match_ids()[0], clip_len=8, target_fps=10, decode=False, clip_ids=[0])[0]
     assert clip.physics is not None
     assert len(clip.physics) == N_PLAYERS  # one per perspective
@@ -168,13 +168,13 @@ def test_physics_surfaced_and_frame_aligned(physics_fixture):
 
 
 def test_physics_none_when_absent(fixture):
-    ds = RocketScienceDataset.from_local(fixture)
+    ds = GameDataset.from_local(fixture)
     clip = ds.load_match(ds.match_ids()[0], clip_len=8, target_fps=10, decode=False, clip_ids=[0])[0]
     assert clip.physics is None
 
 
 def test_physics_surfaced_when_streaming(physics_fixture):
-    ds = RocketScienceDataset.from_local(physics_fixture)
+    ds = GameDataset.from_local(physics_fixture)
     clips = list(ds.iter_clips(clip_len=8, target_fps=10, decode=False))
     assert clips and all(c.physics is not None for c in clips)
     for c in clips:
@@ -183,7 +183,7 @@ def test_physics_surfaced_when_streaming(physics_fixture):
 
 
 def test_iter_clips_streams_per_chunk(fixture):
-    ds = RocketScienceDataset.from_local(fixture)
+    ds = GameDataset.from_local(fixture)
     # clip_len 8 fits a chunk -> one clip per chunk -> N_CHUNKS clips, each within its own chunk
     clips = list(ds.iter_clips(clip_len=8, target_fps=10, decode=True))
     assert len(clips) == N_CHUNKS
@@ -193,7 +193,7 @@ def test_iter_clips_streams_per_chunk(fixture):
 
 
 def test_exclude_replays_drops_overlapping_clips(replay_fixture):
-    ds = RocketScienceDataset.from_local(replay_fixture)
+    ds = GameDataset.from_local(replay_fixture)
     mid = ds.match_ids()[0]
     # clip_len 8 @ 10fps -> one clip per chunk; chunk 0's clip spans global frames [0, 16),
     # which overlaps the replay span [0, 20) -> dropped only when exclude_replays=True.
@@ -209,13 +209,13 @@ def test_exclude_replays_drops_overlapping_clips(replay_fixture):
 
 
 def test_max_clips_caps_count(fixture):
-    ds = RocketScienceDataset.from_local(fixture)
+    ds = GameDataset.from_local(fixture)
     clips = ds.load_match(ds.match_ids()[0], clip_len=8, target_fps=10, decode=False, max_clips=2)
     assert len(clips) == 2  # 4 chunks -> 4 clips available, capped to 2
 
 
 def test_loads_non_contiguous_chunks_by_original_key(gappy_fixture):
-    ds = RocketScienceDataset.from_local(gappy_fixture)
+    ds = GameDataset.from_local(gappy_fixture)
     mid = ds.match_ids()[0]
     # clip_len 4 @ 20fps -> stride 1 -> fits CHUNK; one clip-set per present chunk position
     clips = ds.load_match(mid, clip_len=4, target_fps=20, decode=False)

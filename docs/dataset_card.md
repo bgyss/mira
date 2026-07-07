@@ -6,9 +6,9 @@ of a 2v2 Rocket League match.
 ## Loading
 
 ```python
-from mira.data import RocketScienceDataset
+from mira.data import GameDataset
 
-ds = RocketScienceDataset.from_hub("kyutai/rocket-science", split="test")
+ds = GameDataset.from_hub("kyutai/rocket-science", split="test")
 clip = ds.load_match(ds.match_ids()[0], clip_len=16, target_fps=10)[0]
 ```
 
@@ -30,12 +30,12 @@ clip, per perspective:
 - **`physics`** — per-frame game state, one list of `FrameState` dicts per perspective, frame-aligned
   with the video: the **ball** (location, velocity, rotation, angular velocity), the four **cars**
   (location, velocity, boost, on-ground / supersonic flags, …), and the **game** info (score,
-  overtime, clock). See `mira.data.state` for the typed field layout.
+  overtime, clock). See `mira.data.games.rocket_league.state` for the typed field layout.
 
 Perspectives are ordered by `player_id`; `clip.teams` gives each one's team (0 / 1).
 
 ## Exploring
 
-`mira.data.viz` renders a clip as a synchronised 4-view grid with a keyboard overlay plus a
+`mira.data.games.rocket_league.viz` renders a clip as a synchronised 4-view grid with a keyboard overlay plus a
 top-down arena radar and HUD; `examples/explore.py` is a guided, interactive tour (`pixi run
 explore`).

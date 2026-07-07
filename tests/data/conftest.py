@@ -11,7 +11,7 @@ import torch
 
 from mira.data.dataset import MatchClip
 from mira.data.events import Event
-from mira.data.state import CarState, FrameState
+from mira.data.games.rocket_league.state import CarState, FrameState
 
 
 def _car(pid: int, team: int, *, local: bool = False, loc=(0.0, 0.0, 17.0), vel=(0.0, 0.0, 0.0),

@@ -2,9 +2,13 @@ from __future__ import annotations
 
 import pytest
 
+import mira.data as data_api
+import mira.data.actions as actions_api
+from mira.data.dataset import GameDataset, RocketScienceDataset
+from mira.data.events import replay_spans
 from mira.data.game_spec import GamePlugin, GameSpec
 from mira.data.games import GAME_REGISTRY, resolve_game
-from mira.data.dataset import GameDataset, RocketScienceDataset
+from mira.data.games.rocket_league.keys import DEFAULT_RL_KEYS
 
 
 def test_registry_resolves_rocket_league_plugin():
@@ -43,3 +47,15 @@ def test_deprecated_dataset_alias_warns(tmp_path):
         ds = RocketScienceDataset.from_local(tmp_path)
 
     assert isinstance(ds, GameDataset)
+
+
+def test_deprecated_replay_spans_warns():
+    with pytest.warns(DeprecationWarning, match="rocket_league"):
+        assert replay_spans([], fps=20, recording_offset_sec=0.0, n_frames=10) == []
+
+
+def test_deprecated_key_reexports_warn():
+    with pytest.warns(DeprecationWarning, match="DEFAULT_RL_KEYS"):
+        assert actions_api.DEFAULT_RL_KEYS == DEFAULT_RL_KEYS
+    with pytest.warns(DeprecationWarning, match="DEFAULT_RL_KEYS"):
+        assert data_api.DEFAULT_RL_KEYS == DEFAULT_RL_KEYS

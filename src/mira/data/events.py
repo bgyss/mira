@@ -16,7 +16,9 @@ alignment ignores this offset; offset-corrected alignment uses the formula above
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
+
 
 @dataclass(frozen=True)
 class Event:
@@ -49,6 +51,12 @@ def replay_spans(
     events: list[Event], fps: float, recording_offset_sec: float, n_frames: int
 ) -> list[tuple[int, int]]:
     """Deprecated Rocket League replay-span helper."""
+    warnings.warn(
+        "mira.data.events.replay_spans is deprecated; use "
+        "mira.data.games.rocket_league.events.replay_spans instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     from .games.rocket_league.events import replay_spans as _replay_spans
 
     return _replay_spans(events, fps, recording_offset_sec, n_frames)

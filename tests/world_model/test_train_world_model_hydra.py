@@ -46,7 +46,7 @@ def test_train_world_model_config_composes() -> None:
     assert (
         cfg.model.architecture.config._target_ == "mira.world_model.config.LatentWorldModelConfig"
     )
-    # Action vocabulary is interpolated from the dataset (9-key DEFAULT_RL_KEYS).
+    # Action vocabulary is interpolated from the Rocket League dataset config.
     assert len(cfg.actions.valid_keys) == 9
     assert cfg.dataset.n_players == 1
     # 1B architecture sizes come from the package-override default.
