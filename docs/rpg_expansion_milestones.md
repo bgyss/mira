@@ -4,6 +4,23 @@ Target experiences: Breath of the Wild / Tears of the Kingdom / Elden Ring — t
 open-world action RPGs with analog control, huge diverse environments, persistent world state,
 menus/UI, and long-horizon spatial memory requirements.
 
+The practical architecture should be **hybrid**, not a pure "replace the whole game engine with a
+video model" attempt. MIRA should learn visual dynamics, animation continuity, camera/lighting
+behavior, and action-conditioned latent prediction; explicit systems should own hidden RPG state:
+inventory, quests, combat rules, collision, NPC schedules, save/load, scripted events, and modding
+hooks. The long-term runtime is closer to:
+
+```
+player input
+  -> explicit RPG mechanics/state simulator
+  -> state-conditioned neural world model / renderer
+  -> frame, audio, UI, and camera output
+```
+
+This keeps the neural model focused on what it can plausibly learn from pixels and traces while
+preserving determinism, testability, and designer control for the causal structure that RPGs depend
+on.
+
 Each milestone lists: **Goal**, **Why it's ordered here**, **Deliverables**, and a **Goal Prompt**
 you can hand directly to an agent/engineer to kick off the work.
 
@@ -70,22 +87,30 @@ exists — generalize it.
 **Goal:** A capture harness producing MIRA-format shards from real gameplay: synchronized video +
 gamepad JSONL + metadata, starting with one game (Elden Ring on PC is the pragmatic first target —
 native PC input capture; BotW/TotK require emulation and carry legal/ToS considerations to resolve
-before committing).
+before committing). For RPGs, the harness should capture as much **structured state** as available,
+not only pixels and inputs.
 
 **Deliverables:**
 - Capture tool: fixed-fps video (30fps recommended) + per-frame gamepad state + session metadata,
   written as `(match, chunk)` WebDataset shards with `index.json` per the schema-v2 contract.
+- Optional state taps: camera pose, player pose, health/stamina, equipment, inventory hash,
+  quest/flag snapshots, enemy/NPC state, object IDs, collision/navmesh references, and save-file
+  checkpoints when available through mod APIs, debug hooks, memory scanners, deterministic replay,
+  or extracted assets.
 - Chunking policy for long sessions (RL uses ~4s/80-frame chunks; pick chunk length to support the
   M5 long-context work — e.g. 30–60s chunks with intra-chunk clip sampling).
 - Scene/segment annotation pass: automatic detection of menus, loading screens, cutscenes, deaths,
   fast-travel (needed by M6); store as events on the shared clock like `events.py` does for goals.
+- Replay/regression split: reserve trace sets for later exact-playback checks, including golden
+  path quests, combat encounters, doors/chests, and area revisit loops.
 - Target: 100+ hours for the first game before M4 training.
 
 **Goal Prompt:**
 > Build a gameplay capture pipeline for a PC action RPG: record video at a fixed fps with
-> per-frame gamepad state (sticks, triggers, buttons) and write MIRA schema-v2 WebDataset shards
-> with an `index.json`. Include an offline annotation pass that tags menu/loading/cutscene/death
-> spans as events. Add a `configs/dataset/<game>.yaml` and validate end-to-end by loading shards
+> per-frame gamepad state (sticks, triggers, buttons), optional state traces from mod/debug/save
+> hooks, and MIRA schema-v2 WebDataset shards with an `index.json`. Include an offline annotation
+> pass that tags menu/loading/cutscene/death spans as events and reserves replay traces for
+> regression tests. Add a `configs/dataset/<game>.yaml` and validate end-to-end by loading shards
 > through `RocketScienceDataset`-equivalent APIs and visualizing clips in the marimo browser.
 
 ---
@@ -170,6 +195,8 @@ Extend context far beyond the current denoise window with an explicit memory mec
 
 **Goal:** Handle the non-physics half of RPGs — inventory screens, dialog boxes, map/fast-travel,
 death/respawn, loading transitions — and persistent scalar state (health, stamina, rupees/runes).
+This is also where MIRA starts exposing a mechanics boundary instead of hiding all causality inside
+the latent model.
 
 **Deliverables:**
 - Event/segment conditioning: feed M2's menu/cutscene/death annotations as conditioning tokens so
@@ -177,6 +204,12 @@ death/respawn, loading transitions — and persistent scalar state (health, stam
 - Persistent-state channel: a small structured-state vector (health, stamina, inventory hash,
   time-of-day) encoded alongside actions; evaluate whether the model keeps HUD values coherent
   across rollouts.
+- Mechanics/state ownership doc: define which systems are explicit (health, stamina, inventory,
+  quest flags, collision, save/load, NPC/AI state) and which remain neural (visual continuation,
+  animation interpolation, lighting/material detail, uncertain residual dynamics).
+- First executable mechanics graph prototype for one narrow loop (for example: lock-on combat,
+  stamina-gated dodge, door/chest interaction, or menu open/close), with the world model consuming
+  state deltas rather than inventing them.
 - Mode-switch fidelity metric: opening/closing a menu from the same context must produce the
   correct discrete transition.
 
@@ -184,8 +217,10 @@ death/respawn, loading transitions — and persistent scalar state (health, stam
 > Teach the world model discrete game-state transitions. Add segment-type conditioning tokens
 > (gameplay/menu/cutscene/loading) from the dataset annotations, and a structured-state
 > conditioning vector (HUD-extractable scalars) alongside the action stream. Build metrics for
-> mode-switch correctness and HUD-value coherence over 30s rollouts. Decide and document whether
-> menus are generated by the same model or delegated to a separate branch, based on results.
+> mode-switch correctness and HUD-value coherence over 30s rollouts. Define the explicit
+> mechanics/state boundary and implement one small executable mechanics graph whose state deltas
+> condition the world model. Decide and document whether menus are generated by the same model or
+> delegated to a separate branch, based on results.
 
 ---
 
@@ -214,7 +249,8 @@ BotW-trained model few-shot to TotK?).
 ## M8 — Real-time interactive play
 
 **Goal:** A human plays the generated RPG live: gamepad in, frames out, at ≥20fps with bounded
-per-frame latency, using the streaming kv-cache + memory system.
+per-frame latency, using the streaming kv-cache + memory system and the explicit state/mechanics
+loop from M6.
 
 **Deliverables:**
 - Streaming inference server (extend `inference/rollout.py`'s streaming path): live action
@@ -222,15 +258,19 @@ per-frame latency, using the streaming kv-cache + memory system.
   (note the pinned torch 2.8 — a step-distilled few-step sampler is likely the main lever, since
   the schedule already lives in `world_model/schedule.py`).
 - Latency budget doc: encode/denoise/decode breakdown vs. the M3 operating point.
+- Hybrid runtime loop: action ingestion updates explicit mechanics/state first; the neural model
+  renders the resulting state-conditioned next frame. Save/load and replay should serialize the
+  explicit state plus model context, not rely on pixels alone.
 - Human eval protocol: task-based play sessions (reach a landmark, fight an enemy, open a menu)
   scored for control fidelity, coherence, and memory.
 
 **Goal Prompt:**
 > Build MIRA's interactive mode: a streaming inference loop that accepts live gamepad input and
-> renders generated frames at ≥20fps end-to-end. Profile encode/denoise/decode with
-> `scripts/bench_wm_speed.py`, then close the gap via few-step sampler distillation and compile
-> tuning (respect the torch 2.8/torchcodec 0.7.0 pin). Deliver a local play client and a human
-> evaluation protocol with task-based scenarios, and report where the experience breaks first.
+> advances explicit RPG mechanics/state before rendering generated frames at ≥20fps end-to-end.
+> Profile encode/denoise/decode with `scripts/bench_wm_speed.py`, then close the gap via few-step
+> sampler distillation and compile tuning (respect the torch 2.8/torchcodec 0.7.0 pin). Deliver a
+> local play client, replay/save-load support for the explicit state plus model context, and a
+> human evaluation protocol with task-based scenarios. Report where the experience breaks first.
 
 ---
 
@@ -238,6 +278,14 @@ per-frame latency, using the streaming kv-cache + memory system.
 
 - **Evaluation:** every milestone adds metrics to `src/mira/training/metrics/` with tests; never
   ship a capability without its measurement.
+- **Hybrid boundary discipline:** gameplay correctness belongs to explicit, inspectable state and
+  mechanics when possible; the model should be measured as a renderer/dynamics prior, not trusted
+  as the only source of truth for hidden RPG rules.
+- **Object persistence:** doors, chests, enemies, pickups, NPCs, and quest objects need stable IDs
+  and state histories. Favor object-centric traces and state-conditioned rollouts over pixel-only
+  continuation wherever instrumentation can expose them.
+- **Replay QA:** preserve exact original traces and golden-path task scripts so new models,
+  adapters, and mechanics graphs can be regression-tested against known outcomes.
 - **Checkpoint compatibility:** follow the `REMOVED_CONFIG_FIELDS` discipline — old checkpoints
   fail loudly on genuine incompatibilities, load silently only for true no-ops.
 - **Legal/data governance:** resolve capture ToS questions (especially console emulation for
