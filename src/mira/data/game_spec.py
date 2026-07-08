@@ -52,7 +52,8 @@ class QualityCheck:
 class GamePlugin(Protocol):
     """Runtime hooks for game-specific dataset behavior."""
 
-    spec: GameSpec
+    @property
+    def spec(self) -> GameSpec: ...
 
     def parse_frame_state(self, raw: dict[str, Any]) -> Mapping[str, Any]: ...
 

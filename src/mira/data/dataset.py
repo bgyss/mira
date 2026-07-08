@@ -109,7 +109,7 @@ class MatchClip:
     actions: "torch.Tensor"  # (P, T, n_keys) int32 multi-hot
     events: list[Event]  # events overlapping this window (mapped via the first selected perspective)
     frames: "torch.Tensor | None" = None  # (P, T, C, H, W) uint8; None if decode=False
-    physics: list[list[dict[str, Any]]] | None = None  # per perspective, T per-frame game-state dicts
+    physics: list[list[Any]] | None = None  # per perspective, T opaque per-frame game-state dicts
     # (None if the dataset carries no physics). All perspectives share the same world state; kept
     # per-perspective so it stays frame-aligned with that perspective's frames/actions.
     global_frame_indices: list[int] | None = None  # match-global source-frame index per step (same T

@@ -3,20 +3,19 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from functools import cached_property
 from typing import TYPE_CHECKING, Any
 
 from ..events import Event, parse_anchors
 
 if TYPE_CHECKING:
-    from ..game_spec import GamePlugin, QualityCheck, VizTheme
+    from ..game_spec import GamePlugin, GameSpec, QualityCheck, VizTheme
 
 
 class RocketLeaguePlugin:
     """Rocket League implementation of the dataset plug-in hooks."""
 
-    @cached_property
-    def spec(self):
+    @property
+    def spec(self) -> "GameSpec":
         from mira.world_model.actions_config import ActionConfig
 
         from ..game_spec import GameSpec, VideoParams
@@ -57,7 +56,7 @@ class RocketLeaguePlugin:
 GAME_REGISTRY: dict[str, "GamePlugin"] = {"rocket_league": RocketLeaguePlugin()}
 
 
-def resolve_game(game: str | "GamePlugin") -> "GamePlugin":
+def resolve_game(game: "str | GamePlugin") -> "GamePlugin":
     if isinstance(game, str):
         try:
             return GAME_REGISTRY[game]

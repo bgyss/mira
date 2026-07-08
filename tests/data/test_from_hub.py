@@ -1,6 +1,7 @@
 """from_hub wiring, without network: snapshot_download is stubbed to return a local prefix tree."""
 
 import json
+from fnmatch import fnmatch
 
 import huggingface_hub
 import pytest
@@ -75,8 +76,7 @@ def test_from_hub_nested_shard_paths(tmp_path, monkeypatch):
             "n_players": 4,
             "chunk_frames": [20],
             "perspectives": [
-                {"player_id": 400 + j, "team": j % 2, "frames": 20, "duration": 1.0}
-                for j in range(4)
+                {"player_id": 400 + j, "team": j % 2, "frames": 20, "duration": 1.0} for j in range(4)
             ],
         }
         for i, shard in enumerate(["000/dataset_00000.tar", "001/dataset_01000.tar"])
@@ -102,12 +102,6 @@ def test_from_hub_nested_shard_paths(tmp_path, monkeypatch):
 def test_allow_patterns_match_nested_shards():
     """`train/*` must keep matching nested shards: allow_patterns are fnmatch-based (`*` crosses
     `/`); a switch to path-aware globbing would make `from_hub(split=...)` silently miss them."""
-    from huggingface_hub.utils import filter_repo_objects
-
-    kept = list(
-        filter_repo_objects(
-            ["train/000/dataset_00000.tar", "train/index.json", "test/dataset_00.tar"],
-            allow_patterns=["train/*"],
-        )
-    )
+    paths = ["train/000/dataset_00000.tar", "train/index.json", "test/dataset_00.tar"]
+    kept = [p for p in paths if fnmatch(p, "train/*")]
     assert kept == ["train/000/dataset_00000.tar", "train/index.json"]

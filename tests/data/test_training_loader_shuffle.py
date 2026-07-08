@@ -163,6 +163,7 @@ def _iterable(fixture) -> _VideoActionIterable:
         clip_len=8,
         target_fps=10,
         n_players=1,
+        game="rocket_league",
         exclude_replays=False,
         frame_size=None,
         shuffle=True,

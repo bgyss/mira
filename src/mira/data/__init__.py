@@ -29,17 +29,9 @@ __all__ = [
     "MatchEntry",
     "Perspective",
     "Anchor",
-    "Vec3",
-    "Quat",
-    "GameInfo",
-    "BallState",
-    "CarState",
-    "FrameState",
     "KeyVocab",
-    "DEFAULT_RL_KEYS",
     "tensorize_actions",
     "Event",
-    "replay_spans",
     "GAME_REGISTRY",
 ]
 

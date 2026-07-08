@@ -43,9 +43,7 @@ def _compose(overrides: list[str]):
 def test_train_world_model_config_composes() -> None:
     cfg = _compose(overrides=[])
     assert cfg.model.architecture._target_ == "mira.world_model.latent_world_model.LatentWorldModel"
-    assert (
-        cfg.model.architecture.config._target_ == "mira.world_model.config.LatentWorldModelConfig"
-    )
+    assert cfg.model.architecture.config._target_ == "mira.world_model.config.LatentWorldModelConfig"
     # Action vocabulary is interpolated from the Rocket League dataset config.
     assert len(cfg.actions.valid_keys) == 9
     assert cfg.dataset.n_players == 1
