@@ -29,11 +29,14 @@ This is the official code release for the technical report:<br>
 ### Installation
 
 ```bash
-pixi run setup   # one-time: creates the environment and installs MIRA (requires an NVIDIA GPU)
-pixi run test    # run the test suite
+pixi run setup      # one-time: creates the environment and installs MIRA
+pixi run setup-cpu  # explicit CPU/MPS install path for Apple Silicon or non-NVIDIA machines
+pixi run test       # run the test suite
 ```
 
 Requires [pixi](https://pixi.sh) and torch >= 2.8 (installed for you).
+On Linux, `pixi run setup` installs the CUDA build of torch. On Apple Silicon Macs, it installs the
+CPU/MPS-compatible torch wheel because CUDA wheels are not available for `osx-arm64`.
 
 ### Dataset
 
