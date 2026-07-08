@@ -2,9 +2,9 @@ import random
 
 import pytest
 
-from mira.data.dataset import RocketScienceDataset, chunk_key, parse_chunk_key
+from mira.data.dataset import GameDataset, chunk_key, parse_chunk_key
 
-sel = RocketScienceDataset._select_perspectives
+sel = GameDataset._select_perspectives
 
 
 def test_chunk_key_roundtrip_and_guard():

@@ -111,8 +111,8 @@ def tiny_raev2_config() -> VideoCodecConfig:
 
 def tiny_batch(batch: int = 1):
     """A ``VideoActionBatch`` with a tiny random video (actions are unused by the codec)."""
-    from mira.data.actions import DEFAULT_RL_KEYS
     from mira.data.batch import VideoActionBatch
+    from mira.data.games.rocket_league.keys import DEFAULT_RL_KEYS
     from mira.world_model.actions_config import ActionConfig, ActionTensors
 
     actions = ActionTensors(

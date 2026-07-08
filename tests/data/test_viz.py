@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 import torch
 
-from mira.data import viz
+from mira.data.games.rocket_league import viz
 
 
 def _with_frames(clip, h=90, w=160):
@@ -64,7 +64,7 @@ def test_radar_panel_frame_shape(make_frame):
 
 
 def test_radar_panel_frame_shape_with_badge(make_frame):
-    from mira.data.physics import Badge
+    from mira.data.games.rocket_league.physics import Badge
 
     badge = Badge("REPLAY", "REPLAY · ⏸ physics frozen", True)  # a frozen badge must not change dims
     panel = viz.radar_panel_frame(make_frame(10), panel_h=400, radar_size=240, badge=badge)

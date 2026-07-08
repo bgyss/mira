@@ -67,6 +67,7 @@ def main() -> None:
         valid_keys=list(model.config.actions.valid_keys),
         action_fps=model.config.actions.target_fps,
         frame_size=tuple(frame_size) if frame_size is not None else None,
+        game=cfg.dataset.get("game", "rocket_league"),
         seed=38,
         infinite=True,
     )

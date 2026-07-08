@@ -1,8 +1,8 @@
-"""Keyboard actions: parsing the per-frame `.jsonl` into a multi-hot tensor.
+"""Keyboard actions: parsing per-frame `.jsonl` records into a multi-hot tensor.
 
-The 4-player Rocket League data is keyboard-only (no mouse/analog): every `.jsonl` line is
-`{"keys": [...]}` with one line per video frame. We turn that into a multi-hot tensor over a
-fixed key vocabulary, downsampling to `target_fps` by OR-ing key presses over each window.
+Keyboard-only datasets provide one JSON object per video frame, conventionally
+`{"keys": [...]}`. We turn that into a multi-hot tensor over a fixed key vocabulary, downsampling to
+`target_fps` by OR-ing key presses over each window.
 
 Downsampling contract: integer-only downsampling, keys OR-ed over the window, int32 multi-hot. The
 fixed vocabulary order below must stay stable so the multi-hot ordering is consistent across
@@ -18,24 +18,10 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal
 
 from .clips import compute_stride
+from .games.rocket_league.keys import DEFAULT_RL_KEYS as _DEFAULT_RL_KEYS
 
 if TYPE_CHECKING:
     import torch
-
-# Stable, documented ordering of the 9 keys present in the 4-player Rocket League data.
-# (drive: W/S, steer/air: A/D, jump: Space, boost: LShiftKey, drift/air-roll: LControlKey,
-#  plus Q/E powerslide/air-roll binds). These are the keys present in the data.
-DEFAULT_RL_KEYS: tuple[str, ...] = (
-    "W",
-    "A",
-    "S",
-    "D",
-    "Q",
-    "E",
-    "Space",
-    "LShiftKey",
-    "LControlKey",
-)
 
 
 @dataclass(frozen=True)
@@ -57,7 +43,13 @@ class KeyVocab:
 
     @classmethod
     def default_rl(cls, on_unknown: Literal["warn", "ignore", "error"] = "warn") -> "KeyVocab":
-        return cls(DEFAULT_RL_KEYS, on_unknown=on_unknown)
+        warnings.warn(
+            "KeyVocab.default_rl() is deprecated; use "
+            "mira.data.games.rocket_league.keys.DEFAULT_RL_KEYS explicitly.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return cls(_DEFAULT_RL_KEYS, on_unknown=on_unknown)
 
     def __len__(self) -> int:
         return len(self.keys)
@@ -117,3 +109,15 @@ def tensorize_actions(
     if not steps:
         return torch.zeros((0, n_keys), dtype=torch.int32)
     return torch.stack(steps, dim=0)
+
+
+def __getattr__(name: str):
+    if name == "DEFAULT_RL_KEYS":
+        warnings.warn(
+            "mira.data.actions.DEFAULT_RL_KEYS is deprecated; use "
+            "mira.data.games.rocket_league.keys.DEFAULT_RL_KEYS instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return _DEFAULT_RL_KEYS
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

@@ -10,5 +10,8 @@ Hydra applications for training, evaluation, and serving. Each reads its config 
   rollout metrics) from a checkpoint.
 - `bench_wm_speed.py` — micro-benchmark world-model rollout speed.
 
+Dataset-specific behavior is routed through `mira.data.games.GAME_REGISTRY`. Current configs use
+`dataset.game=rocket_league`; older configs without that key still resolve to Rocket League.
+
 See [`configs/README.md`](../configs/README.md) for the config layout and the top-level
 [`README.md`](../README.md) for example commands.

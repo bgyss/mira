@@ -27,7 +27,7 @@ def test_train_codec_config_composes() -> None:
     cfg = _compose(overrides=["run.compile=false"])
     assert cfg.model.architecture._target_ == "mira.codec.VideoCodec"
     assert cfg.model.loss.weights._target_ == "mira.codec.CodecLossWeights"
-    # The action vocabulary is interpolated from the dataset (9-key DEFAULT_RL_KEYS).
+    # The action vocabulary is interpolated from the Rocket League dataset config.
     assert len(cfg.actions.valid_keys) == 9
     assert cfg.dataset.n_players == 1
     # Loss weights match the release recipe.

@@ -4,10 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-MIRA is a real-time latent world model of Rocket League: a frozen video codec (RAEv2, built on a
-DINOv3 backbone) feeds an action-conditioned flow-matching diffusion transformer that predicts the
-next latent video frame autoregressively. `src/mira` is a library (`pip install mira[...]`);
-`scripts/` holds the Hydra training/eval entry points; `configs/` holds the Hydra YAML.
+MIRA is a real-time latent world model for interactive game experiences. Rocket League is the first
+supported game: a frozen video codec (RAEv2, built on a DINOv3 backbone) feeds an action-conditioned
+flow-matching diffusion transformer that predicts the next latent video frame autoregressively.
+`src/mira` is a library (`pip install mira[...]`); `scripts/` holds the Hydra training/eval entry
+points; `configs/` holds the Hydra YAML.
 
 ## Commands
 
@@ -54,18 +55,19 @@ graph.
 
 ## Architecture
 
-**Data pipeline** (`src/mira/data`): one WebDataset sample is one *(match, chunk)* — a ~4s window
-(80 frames @ 20fps) bundling all 4 players' perspectives (`p{i}.mp4` + `p{i}.jsonl` + `meta.json`,
-ordered by `player_id`). `schema.py` defines the `index.json` structure (`MatchEntry` per match,
-used for random access); `dataset.py`'s `RocketScienceDataset` supports `load_match(...)` (random
-access, reads only needed chunks) and `iter_clips(...)` (streaming, one chunk at a time). A *clip*
-(fixed frame count, e.g. 16 @ 20fps) is always taken from within a single chunk — clips never span
-chunk boundaries. `actions.py` tensorizes the 9-key `DEFAULT_RL_KEYS` vocabulary; `physics.py`/
-`state.py` carry per-frame game state (ball, cars, score); `events.py` handles goals/boost pickups
-etc. anchored to a shared match clock. `batch.py`'s `VideoActionBatch` is the collated training
-batch shape. The data loader's grouping invariant: a match's 4 perspectives arrive contiguously and
-player-id-ordered as `n_players` consecutive rows of the batch — several downstream components
-(e.g. the multiplayer wrapper) rely on this to `rearrange("(b p) ... -> b p ...")`.
+**Data pipeline** (`src/mira/data`): one WebDataset sample is one *(match, chunk)* — a short window
+bundling every selected perspective (`p{i}.mp4` + `p{i}.jsonl` + `meta.json`, ordered by
+`player_id`). `schema.py` defines the generic `index.json` structure (`MatchEntry` per match, used
+for random access); `dataset.py`'s `GameDataset` supports `load_match(...)` (random access, reads
+only needed chunks) and `iter_clips(...)` (streaming, one chunk at a time). The old
+`RocketScienceDataset` name is a deprecated alias. A *clip* is always taken from within a single
+chunk — clips never span chunk boundaries. `actions.py` tensorizes keyboard action streams with an
+explicit `KeyVocab`; Rocket League's keys, replay spans, frame-state TypedDicts, physics helpers,
+and viz defaults live under `src/mira/data/games/rocket_league/`. `game_spec.py` and
+`games/__init__.py` define the `GameSpec`/`GamePlugin` registry surface, with `rocket_league` as the
+initial plug-in. `batch.py`'s `VideoActionBatch` is the collated training batch shape. The data
+loader's grouping invariant is generic: a group is `n_players` consecutive player-id-ordered rows
+of the batch, which downstream wrappers can reshape with `rearrange("(b p) ... -> b p ...")`.
 
 **Codec** (`src/mira/codec`): `VideoCodec` (RAEv2) — a frozen DINOv3-L/16 encoder with layer
 aggregation feeds a strided-conv bottleneck, decoded back to pixels by a ViT video decoder
@@ -105,5 +107,6 @@ Frechet curves), `tracker.py`/`visualization.py` for logging (wandb) and rollout
   loosening `extra="forbid"` — a checkpoint with a genuinely different value should still fail
   loudly.
 - `tests/` mirrors `src/mira/` package-by-package (`tests/codec`, `tests/data`, `tests/world_model`,
-  `tests/training`, `tests/ml`, `tests/inference`); most Hydra-config-loading behavior has a
-  corresponding `test_*_hydra.py`.
+  `tests/training`, `tests/ml`, `tests/inference`); game-specific data tests belong under
+  `tests/data/games/<game_id>/`. Most Hydra-config-loading behavior has a corresponding
+  `test_*_hydra.py`.

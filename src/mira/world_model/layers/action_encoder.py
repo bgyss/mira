@@ -3,8 +3,8 @@
 The encoder embeds each key with its own learned embedding, embeds the (mostly zero) mouse deltas and
 the (often NaN) mouse sensitivity, temporally pools to the latent frame rate, and prepends a learned
 initial-action token so the first latent frame has a conditioning token. The NaN-sensitivity path
-(``nan_to_num`` + masking to a learned token) is what makes the keyboard-only Rocket League data
-work: all-NaN sensitivity is the expected "no mouse" signal.
+(``nan_to_num`` + masking to a learned token) supports keyboard-only datasets: all-NaN sensitivity
+is the expected "no mouse" signal.
 """
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-"""The clip-length feasibility guard in ``create_loader`` / ``RocketScienceDataset.max_clip_frames``.
+"""The clip-length feasibility guard in ``create_loader`` / ``GameDataset.max_clip_frames``.
 
 When no clip in the dataset is long enough for the requested ``clip_len``, an ``infinite=True`` loader
 would skip every match and loop over an empty epoch forever. The guard turns that silent hang into an
@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from mira.data.dataset import RocketScienceDataset
+from mira.data.dataset import GameDataset
 from mira.data.training_loader import create_loader
 
 FPS = 20
@@ -38,19 +38,19 @@ def _write_index(dir_: Path, chunk_frames_per_match: list[list[int]], *, fps: in
 
 def test_max_clip_frames_at_source_rate(tmp_path):
     # One match, chunks of 80 and 40 frames at 20fps; target_fps == source_fps -> stride 1.
-    ds = RocketScienceDataset.from_local(_write_index(tmp_path, [[80, 40]]))
+    ds = GameDataset.from_local(_write_index(tmp_path, [[80, 40]]))
     assert ds.max_clip_frames(target_fps=20) == 80  # (max chunk 80 - 1)//1 + 1
 
 
 def test_max_clip_frames_accounts_for_stride(tmp_path):
     # Downsampling 20fps -> 10fps is stride 2: a clip_len spans (clip_len-1)*2 + 1 source frames,
     # so the longest that fits an 80-frame chunk is (80-1)//2 + 1 = 40.
-    ds = RocketScienceDataset.from_local(_write_index(tmp_path, [[80]]))
+    ds = GameDataset.from_local(_write_index(tmp_path, [[80]]))
     assert ds.max_clip_frames(target_fps=10) == 40
 
 
 def test_max_clip_frames_takes_the_longest_across_matches(tmp_path):
-    ds = RocketScienceDataset.from_local(_write_index(tmp_path, [[40], [80], [20, 20]]))
+    ds = GameDataset.from_local(_write_index(tmp_path, [[40], [80], [20, 20]]))
     assert ds.max_clip_frames(target_fps=20) == 80
 
 

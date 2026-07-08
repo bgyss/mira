@@ -2,7 +2,7 @@
 # world model overrides n_players=4. The data ships separate train/ and test/ splits; point
 # train_index/test_index at the local split directories (each holding index.json plus the shards
 # it references, flat or in numbered subfolders)
-# or fetch them from the Hub via `mira.data.RocketScienceDataset.from_hub(split=...)`.
+# or fetch them from the Hub via `mira.data.GameDataset.from_hub(split=...)`.
 defaults:
   - /actions@actions: rocket_league
   - _self_
@@ -12,6 +12,7 @@ defaults:
 train_index: null
 test_index: null
 
+game: rocket_league
 n_players: 1          # 1 for the codec; 4 for the multiplayer world model.
 # Default frame rate clips are downsampled to. The training entrypoints override the frame rate
 # from the model config (codec: `encoder.video.fps`=20; world model: `video.fps`=20), and the

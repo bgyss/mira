@@ -16,10 +16,8 @@ alignment ignores this offset; offset-corrected alignment uses the formula above
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
-
-REPLAY_START = "GoalReplayStarted"
-REPLAY_END = "GoalReplayEnded"
 
 
 @dataclass(frozen=True)
@@ -52,27 +50,16 @@ def events_in_frame_window(
 def replay_spans(
     events: list[Event], fps: float, recording_offset_sec: float, n_frames: int
 ) -> list[tuple[int, int]]:
-    """Frame-index [start, end) spans covering goal-replay segments (non-live-gameplay).
+    """Deprecated Rocket League replay-span helper."""
+    warnings.warn(
+        "mira.data.events.replay_spans is deprecated; use "
+        "mira.data.games.rocket_league.events.replay_spans instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    from .games.rocket_league.events import replay_spans as _replay_spans
 
-    Pairs each GoalReplayStarted with the next GoalReplayEnded. Spans are clamped to
-    [0, n_frames); a dangling start (replay running at recording end) extends to n_frames.
-    """
-    spans: list[tuple[int, int]] = []
-    start: int | None = None
-    for e in sorted(events, key=lambda x: x.master_sec):
-        f = e.frame_index(fps, recording_offset_sec)
-        if e.event_name == REPLAY_START:
-            start = f
-        elif e.event_name == REPLAY_END and start is not None:
-            lo, hi = max(0, min(start, f)), min(n_frames, max(start, f))
-            if hi > lo:
-                spans.append((lo, hi))
-            start = None
-    if start is not None:
-        lo = max(0, min(start, n_frames))
-        if n_frames > lo:
-            spans.append((lo, n_frames))
-    return spans
+    return _replay_spans(events, fps, recording_offset_sec, n_frames)
 
 
 def overlaps_any(f_start: int, f_end: int, spans: list[tuple[int, int]]) -> bool:

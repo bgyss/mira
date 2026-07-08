@@ -16,8 +16,8 @@ from pathlib import Path
 import pytest
 import torch
 
-from mira.data.actions import DEFAULT_RL_KEYS
 from mira.data.batch import VideoActionBatch
+from mira.data.games.rocket_league.keys import DEFAULT_RL_KEYS
 from mira.data.training_loader import ClipMeta, create_loader
 
 pytestmark = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="needs ffmpeg (run via pixi)")

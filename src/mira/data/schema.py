@@ -1,8 +1,8 @@
-"""Typed schema for the Rocket League WebDataset index (`index.json`).
+"""Typed schema for the game WebDataset index (`index.json`).
 
-One WebDataset **sample = one (match, chunk)**: a ~4 s window of a match bundling all perspectives —
-members `p{i}.mp4` / `p{i}.jsonl` per perspective (ordered by `player_id`) + `meta.json`; sample key
-`{match_id}_c{chunk:05d}`. A clip is taken from within a single chunk.
+One WebDataset **sample = one (match, chunk)**: a short window of a match bundling all perspectives
+— members `p{i}.mp4` / `p{i}.jsonl` per perspective (ordered by `player_id`) + `meta.json`; sample
+key `{match_id}_c{chunk:05d}`. A clip is taken from within a single chunk.
 
 `index.json` holds one `MatchEntry` per match (the random-access map). Unknown fields are allowed so
 the schema tolerates extra metadata (e.g. `content_id`).
@@ -81,6 +81,8 @@ class MatchEntry(BaseModel):
 
 class Index(BaseModel):
     model_config = ConfigDict(extra="allow")
+    game_id: str | None = None
+    schema_version: int = 1
     total_samples: int  # number of matches (each match expands to len(chunk_frames) chunk samples)
     entries: list[MatchEntry]
 
